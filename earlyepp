@@ -1,0 +1,308 @@
+#!/usr/bin/env python
+# vim: set ts=8 sw=4 sts=4 et ai:
+# Copyright (C) 2011, OSSO B.V., Walter Doekes
+
+
+########################################################################
+# MAIN
+########################################################################
+
+class Error(RuntimeError):
+    pass
+
+def earlyepp(args):
+    import eppsession, eppsocket, eppxml
+
+    if len(args) == 1 and args[0] == 'help':
+        print 'SIDN EPP work in progress.'
+        print
+        print 'Reads ~/.epprc with format EPPID:host:username:password:DEBUGFLAG, e.g.:'
+        print '  sidn-test1:testdrs.my-domain-registry.nl:123456:mypass:'
+        print 'Supply "help COMMAND" on the CLI to get info about COMMAND, e.g.:'
+        print '  earlyepp help token'
+        print 'Supply EPPID as first argument before the command and its arguments, e.g.:'
+        print '  earlyepp sidn-test1 token osso.nl'
+        print
+        print 'Contact commands:'
+        print '  cchg = change a contact'
+        print '  ccreat = create a contact'
+        print '  cdel = delete a contact'
+        print '  cfree = check contact availability'
+        print '  cinfo = get contact information'
+        print 'Domain commands:'
+        print '  del = delete a domain'
+        print '  free = check domain availability'
+        print '  info = get domain information'
+        print '  reg = register a domain'
+        print '  regcp = register a domain using info from other'
+        print '  rel = release a domain (approve transfer)'
+        print '  sethnd = (re)set handles'
+        print '  setns = (re)set nameservers'
+        print '  token = get domain token for away transfer'
+        print '  undel = cancel a domain deletion'
+        print '  unxfer = cancel the transfer of a domain to self'
+        print '  xfer = transfer to self'
+        print '  xinfo = get transfer information'
+        print 'Misc commands:'
+        print '  msgs = query server messages'
+
+    elif len(args) == 2 and args[0] == 'help':
+        if args[1] == 'cchg':
+            print 'Change (all) contact info.'
+            print 'Usage: cchg HANDLE NAME STREET HOUSENR ZIPCODE CITY COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
+        elif args[1] == 'ccreat':
+            print 'Create a new contact.'
+            print 'Usage: ccreat NAME STREET HOUSENR ZIPCODE CITY COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
+        elif args[1] == 'cdel':
+            print 'Delete a contact.'
+            print 'Usage: cdel HANDLE'
+        elif args[1] == 'cfree':
+            print 'Check whether a contact handle is free (USELESS!).'
+            print 'Usage: cfree HANDLE'
+        elif args[1] == 'cinfo':
+            print 'Print all available info about a contact.'
+            print 'Usage: cinfo HANDLE'
+        elif args[1] == 'del':
+            print 'Delete a domain.'
+            print 'Usage: del DOMAINNAME'
+        elif args[1] == 'free':
+            print 'Check whether the domain is free.'
+            print 'Usage: free DOMAINNAME'
+        elif args[1] == 'info':
+            print 'Print all available info about a domain.'
+            print 'Usage: info DOMAINNAME'
+        elif args[1] == 'msgs':
+            print 'Read messages from the server.'
+            print 'Usage: msgs'
+        elif args[1] == 'reg':
+            print 'Register a new domain name.'
+            print 'Usage: reg DOMAINNAME OWNERHANDLE admin HANDLE tech HANDLE ns NAMESERVER...'
+        elif args[1] == 'regcp':
+            print 'Register a new domain name.'
+            print 'Usage: regcp DOMAIN_TO_USE_INFO_FROM DOMAINNAME'
+        elif args[1] == 'rel':
+            print 'Release (approve transfer of) a domain.'
+            print 'Command: rel DOMAINNAME'
+        elif args[1] == 'sethnd':
+            print 'Set the handles for the domain name. Use an asterisk (*) for the values you do not want to change.'
+            print 'Usage: sethnd DOMAINNAME OWNERHANDLE admin HANDLE tech HANDLE...'
+        elif args[1] == 'setns':
+            print 'Set the nameservers for the domain name.'
+            print 'Usage: setns DOMAINNAME NAMESERVER...'
+        elif args[1] == 'token':
+            print 'Get the transfer token for the (your) domain.'
+            print 'Usage: token DOMAINNAME'
+        elif args[1] == 'undel':
+            print 'Cancel the deletion of a domain.'
+            print 'Usage: undel DOMAINNAME'
+        elif args[1] == 'unxfer':
+            print 'Cancel the transfer of a domain to you.'
+            print 'Command: unxfer DOMAINNAME'
+        elif args[1] == 'xfer':
+            print 'Transfer the domain to you.'
+            print 'Command: xfer DOMAINNAME TOKEN'
+        elif args[1] == 'xinfo':
+            print 'Get domain transfer information.'
+            print 'Command: xinfo DOMAINNAME'
+        else:
+            raise Error('Unknown command. Try the "help" command')
+
+    elif len(args) >= 2 and args[1] in (
+            'cchg', 'ccreat', 'cdel', 'cfree', 'cinfo',
+            'del', 'free', 'info', 'msgs', 'reg', 'regcp', 'rel', 'sethnd', 'setns', 'token', 'undel', 'unxfer', 'xfer', 'xinfo'):
+        eppid = args.pop(0)
+        command = args.pop(0)
+        tracefile = None
+        try:
+            import os
+            epprc = [i for i in open(os.environ['HOME'] + '/.epprc', 'r').read().strip().split('\n') if i.split(':')[0] == eppid]
+            eppid, host, username, password, trace = epprc[0].split(':')
+            if trace != '':
+                tracefile = open(trace, 'a')
+        except Exception, e:
+            raise Error('Invalid ~/.epprc or EPPID not found')
+
+        session = eppsession.EppSession(lambda: eppxml.wrap_socket(eppsocket.tcp_connect(host, tracefile=tracefile)), username, password)
+        try:
+            if len(args) in (10, 12) and command == 'cchg':
+                cchg(session, *args)
+            elif len(args) in (9, 11) and command == 'ccreat':
+                ccreat(session, *args)
+            elif len(args) == 0 and command == 'msgs':
+                msgs(session)
+            elif len(args) >= 2 and command == 'reg':
+                reg(session, args[0], args[1], args[2:])
+            elif len(args) == 2 and command == 'regcp':
+                regcp(session, args[0], args[1])
+            elif len(args) >= 2 and command == 'sethnd':
+                sethnd(session, args[0], args[1], args[2:])
+            elif len(args) >= 1 and command == 'setns':
+                setns(session, args[0], args[1:])
+            elif len(args) == 2 and command == 'xfer':
+                xfer(session, args[0], args[1])
+            elif len(args) == 1:
+                # Most commands take exactly 1 argument beside the session
+                globals().get(command, globals().get('%s_' % command))(session, args[0])
+            else:
+                raise Error('Try the "help" command')
+        except eppxml.UnexpectedData, e:
+            print '== ERROR =='
+            print e
+            print
+            print '== SENT =='
+            print eppxml.pp(e.output)
+            print '== RECEIVED =='
+            print eppxml.pp(e.input)
+            raise Error('Something went wrong. See output on stdout.')
+        finally:
+            session.close()
+
+    else:
+        raise Error('Try the "help" command')
+
+
+########################################################################
+# COMMANDS
+########################################################################
+
+def cchg(session, handle, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+    ret = session.contact(handle).change(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
+            phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
+    print 'changed contact:', handle
+
+def ccreat(session, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+    ret = session.contact_create(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
+            phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
+    print 'created contact:', ret
+
+def cdel(session, handle):
+    ret = session.contact(handle).delete()
+    print 'deleted contact:', handle
+
+def cfree(session, handle):
+    ret = session.contact_is_free(handle)
+    print 'contact availability:', handle, ret
+
+def cinfo(session, handle):
+    ret = session.contact(handle).verbose_info
+    print 'contact info:', handle, ret
+
+def del_(session, domainname):
+    session.domain(domainname).delete()
+    print 'deleted domain:', domainname
+
+def free(session, domainname):
+    ret = session.domain_is_free(domainname)
+    print 'domain availability:', domainname, ret
+
+def info(session, domainname):
+    ret = session.domain(domainname).verbose_info
+    print 'domain info:', domainname, ret
+
+def msgs(session):
+    ret = session.messages()
+    for i in ret:
+        print i
+
+def rel(session, domainname):
+    session.domain(domainname).release()
+    print 'released domain:', domainname
+
+def reg(session, domainname, ownerhandle, args):
+    admin = []
+    tech = []
+    ns = []
+    if len(args) & 1:
+        raise Error('Stray argument: %s' % args[-1])
+    for i in range(0, len(args), 2):
+        if args[i] == 'admin':
+            admin.append(args[i+1])
+        elif args[i] == 'tech':
+            tech.append(args[i+1])
+        elif args[i] == 'ns':
+            ns.append(args[i+1])
+        else:
+            raise Error('Unknown argument type: %s' % args[i])
+    session.domain_create(domainname, registrant=(ownerhandle,), admin=admin, tech=tech, nameservers=ns)
+    print 'registered domain:', domainname
+
+def regcp(session, copy_from_domainname, domainname):
+    copy_from_domain = session.domain(copy_from_domainname)
+    handles = copy_from_domain.get_handles()
+    owners = handles['registrant']
+    admin = handles['admin']
+    tech = handles['tech']
+    ns = copy_from_domain.get_nameservers()
+    session.domain_create(domainname, registrant=owners, admin=admin, tech=tech, nameservers=ns)
+    print 'registered domain:', domainname
+
+def sethnd(session, domainname, ownerhandle, args):
+    admin = []
+    tech = []
+    if len(args) & 1:
+        raise Error('Stray argument: %s' % args[-1])
+    for i in range(0, len(args), 2):
+        if args[i] == 'admin':
+            admin.append(args[i+1])
+        elif args[i] == 'tech':
+            tech.append(args[i+1])
+        else:
+            raise Error('Unknown argument type: %s' % args[i])
+
+    domain = session.domain(domainname)
+    ret = domain.get_handles()
+    print 'handles before:', domainname, ret
+
+    # Use asterisk (*) to denote that we leave it to an already set
+    # value. I.e. "sethnd * admin ABC tech *" changes only the admin.
+    if ownerhandle == '*':
+        ownerhandle = list(ret['registrant'])[0]
+    if len(admin) == 1 and list(admin)[0] == '*':
+        admin = list(ret['admin'])
+    if len(tech) == 1 and list(tech)[0] == '*':
+        tech = list(ret['tech'])
+
+    domain.set_handles(registrant=(ownerhandle,), admin=admin, tech=tech)
+    ret = domain.get_handles()
+    print 'handles after:', domainname, ret
+
+def setns(session, domainname, nslist):
+    domain = session.domain(domainname)
+    ret = domain.get_nameservers()
+    print 'nameservers before:', domainname, ret
+    domain.set_nameservers(nslist)
+    ret = domain.get_nameservers()
+    print 'nameservers after:', domainname, ret
+
+def token(session, domainname):
+    ret = session.domain(domainname).token
+    print 'domain token:', domainname, ret
+
+def undel(session, domainname):
+    session.domain(domainname).undelete()
+    print 'undeleted domain:', domainname
+
+def unxfer(session, domainname):
+    ret = session.domain(domainname).untransfer()
+    print 'cancelled domain transfer:', domainname
+
+def xfer(session, domainname, token):
+    ret = session.domain(domainname).transfer(token)
+    print 'initiated transfer:', domainname, ret
+
+def xinfo(session, domainname):
+    ret = session.domain(domainname).transfer_info
+    print 'transfer info:', domainname, ret
+
+
+########################################################################
+# ENTRY
+########################################################################
+
+if __name__ == '__main__':
+    import sys
+    try:
+        earlyepp(sys.argv[1:])
+    except Error, e:
+        print >>sys.stderr, '%s: %s' % (sys.argv[0], e.args[0])
+        sys.exit(1)

@@ -1,0 +1,6 @@
+sidn:drs.my-domain-registry.nl:301234:aabbccddee:
+sidn-dbg:drs.my-domain-registry.nl:301234:aabbccddee:/dev/stderr
+sidn-test1:testdrs.my-domain-registry.nl:301234:aabbccddee:
+sidn-test1-dbg:testdrs.my-domain-registry.nl:301234:aabbccddee:/dev/stderr
+sidn-test2:testdrs.my-domain-registry.nl:901234:aabbccddee:
+sidn-test2-dbg:testdrs.my-domain-registry.nl:901234:aabbccddee:/dev/stderr
