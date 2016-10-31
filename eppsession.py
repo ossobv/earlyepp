@@ -1,6 +1,15 @@
 # vim: set ts=8 sw=4 sts=4 et ai:
 # Copyright (C) 2011, OSSO B.V., Walter Doekes
-from eppcommand import *
+from base64 import b64decode
+
+from eppcommand import (
+    Login, Logout,
+    ContactCreate, ContactCheck, ContactDelete, ContactInfo, ContactUpdate,
+    DomainCheck, DomainCreate, DomainDelete, DomainDeleteCancel, DomainInfo,
+    DomainTransfer, DomainTransferApprove, DomainTransferCancel,
+    DomainTransferState, DomainUpdate,
+    DnssecDomainUpdate,
+    MessageQueueReadFirst, MessageQueueRemoveFirst)
 from eppxml import pp, xpath, UnexpectedData
 
 # Checking for used commands:
@@ -82,7 +91,7 @@ class EppSession(object):
         ))
         handle = xpath(value, '//contact:creData/contact:id')[0].text
         contact = self.contact(handle)
-        contact._cache = {} # dirty cache
+        contact._cache = {}  # dirty cache
         return contact
 
     def contact_is_free(self, handle):
@@ -116,7 +125,7 @@ class EppSession(object):
                 create_cmd.add_nameserver(i)
         self._exec(create_cmd)
         domain = self.domain(domainname)
-        domain._cache = {} # dirty cache
+        domain._cache = {}  # dirty cache
         return domain
 
     def domain_is_free(self, domainname):
@@ -130,7 +139,7 @@ class EppSession(object):
 
     def messages(self, keep=False):
         ''' Poll the EPP server for new messages. '''
-        max_messages = 9 # SIDN is very limited (9 or 10??)
+        max_messages = 9  # SIDN is very limited (9 or 10??)
         messages = []
         count = 0
 
@@ -154,9 +163,9 @@ class EppSession(object):
                 messages.append(xpath(value, '/epp:epp/epp:response/epp:msgQ/epp:msg')[0].text)
                 count = int(message_info.attrib['count'])
                 if keep:
-                    break # before we start popping queued messages
-                self._exec(MessageQueueRemoveFirst(msgid=message_info.attrib['id'])) # pop message
-            else:
+                    break  # before we start popping queued messages
+                self._exec(MessageQueueRemoveFirst(msgid=message_info.attrib['id']))  # pop message
+
                 raise UnexpectedData(readfirst_cmd, value, '/epp:epp/epp:response/epp:result[@code] code 1300 or 1301')
 
         # Increase the list size to the message count
@@ -184,7 +193,7 @@ class EppSession(object):
             if 'info' not in self._cache:
                 value = self._session._exec(ContactInfo(handle=self._handle))
                 self._cache['info'] = value
-            return pp(self._cache['info']) # FIXME: return value is not nice
+            return pp(self._cache['info'])  # FIXME: return value is not nice
 
         def __repr__(self):
             return "<EppSession.Contact('%s')>" % self._handle
@@ -227,12 +236,12 @@ class EppSession(object):
         def transfer_info(self):
             ''' Verbose transfer information. '''
             value = self._session._exec(DomainTransferState(domainname=self._domainname))
-            return pp(value) # FIXME: this return value is not nice
+            return pp(value)  # FIXME: this return value is not nice
 
         @property
         def verbose_info(self):
             ''' Get verbose domain information. '''
-            return pp(self._info()) # FIXME: return value is not nice
+            return pp(self._info())  # FIXME: return value is not nice
 
         # GETTERS/SETTERS #
 
@@ -302,6 +311,18 @@ class EppSession(object):
                 self._session._exec(update_cmd)
                 self._cache = {}
 
+        # DNSSEC
+
+        def dnskey_add(self, flags, protocol, algo, pubkey):
+            assert isinstance(flags, int)
+            assert isinstance(protocol, int)
+            assert isinstance(algo, int)
+            assert b64decode(pubkey) is not None
+            update_cmd = DnssecDomainUpdate(domainname=self._domainname)
+            update_cmd.dnskey_add(flags, protocol, algo, pubkey)
+            self._session._exec(update_cmd)
+            self._cache = {}
+
         # HELPERS #
 
         def __repr__(self):
@@ -335,14 +356,15 @@ class EppSession(object):
             self._cache = {}
             # FIXME: this return value is not nice
             domainname = xpath(value, '//domain:trnData/domain:name')[0].text
-            status = xpath(value, '//domain:trnData/domain:trStatus')[0].text # pending
-            activation_date = xpath(value, '//domain:trnData/domain:acDate')[0].text # 2010-05-22T13:49:04.000Z
+            status = xpath(value, '//domain:trnData/domain:trStatus')[0].text  # pending
+            activation_date = xpath(value, '//domain:trnData/domain:acDate')[0].text  # 2010-05-22T13:49:04.000Z
             svtrid = xpath(value, '//epp:trID/epp:svTRID')[0].text
             return domainname, status, activation_date, svtrid
 
         def untransfer(self):
             ''' Undo/cancel a domain transfer (to self). '''
             value = self._session._exec(DomainTransferCancel(domainname=self._domainname))
+            del value
 
     ####################################################################
     # END OF EPPSESSION
@@ -350,10 +372,11 @@ class EppSession(object):
 
 
 def main():
-    import eppsocket, eppxml, sys
+    import eppsocket
+    import eppxml
 
     tracefile = None
-    #tracefile = sys.stderr
+    # tracefile = sys.stderr
     session = EppSession(lambda: eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.my-domain-registry.nl', tracefile=tracefile)), '301234', 'aabbccddee')
     dsession = EppSession(lambda: eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.my-domain-registry.nl', tracefile=tracefile)), '901234', 'aabbccddee')
     try:
@@ -383,5 +406,4 @@ def main():
 
 
 if __name__ == '__main__':
-    import sys
     main()

@@ -1,16 +1,16 @@
 # vim: set ts=8 sw=4 sts=4 et ai:
 # Copyright (C) 2011, OSSO B.V., Walter Doekes
-import eppxml
 if not hasattr('', 'format'):
     from string import Template
     import re
+
     def str_format(string, *args, **kwargs):
         tpl = Template(string)
         tpl.pattern = str_format.re
         return tpl.substitute(*args, **kwargs)
     str_format.re = re.compile(r'\{(?P<named>[A-Za-z0-9_]+)\}')
 else:
-    str_format = lambda x, **y: x.format(**y)
+    str_format = (lambda x, **y: x.format(**y))
 
 
 __all__ = (
@@ -23,6 +23,8 @@ __all__ = (
     # Domain commands take (domainname)
     'DomainCheck', 'DomainCreate', 'DomainDelete', 'DomainDeleteCancel', 'DomainInfo', 'DomainUpdate',
     'DomainTransfer', 'DomainTransferApprove', 'DomainTransferCancel', 'DomainTransferState',
+    # DNSSEC commands
+    'DnssecDomainUpdate',
     # Host commands take (domainname) (used for setting up nameserver glue)
     'HostCheck', 'HostCreate', 'HostDelete', 'HostInfo', 'HostUpdate',
 )
@@ -41,7 +43,7 @@ class Base(object):
     def __str__(self):
         return '%s%s%s%s' % (
             '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-            '<epp xmlns="urn:ietf:params:xml:ns:epp-1.0">',
+            '<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
             self._get_body().encode('UTF-8'),
             '</epp>'
         )
@@ -55,7 +57,11 @@ class Base(object):
 
 
 class Command(Base):
+    def _get_custom(self):
+        return ''
+
     def _get_body(self):
+        self.variables['__custom__'] = self._get_custom()
         return '<command>%s</command>' % str_format(self.template, **self.variables)
 
 
@@ -64,7 +70,7 @@ class Hello(Base):
 
 
 class Login(Command):
-    #<clTRID>300100</clTRID><!-- optioneel ... -->
+    # <clTRID>300100</clTRID><!-- optioneel ... -->
     template = u'''<login>
         <clID>{username}</clID>
         <pw>{password}</pw>
@@ -148,26 +154,33 @@ class ContactCreateUpdateBase(Command):
         if legalform is not None:
             assert legalform in 'BGG BRO BV BVI/O COOP CV EENMANSZAAK EESV KERK MAATSCHAP NV OWM PERSOON REDR STICHTING VERENIGING VOF'.split()
             assert legalformno is not None
-            kwargs['__custom__'] = '<sidn-ext-epp:legalForm>%s</sidn-ext-epp:legalForm><sidn-ext-epp:legalFormRegNo>%s</sidn-ext-epp:legalFormRegNo>' \
-                    % (legalform, legalformno)
+            kwargs['__custom__'] = (
+                '<sidn-ext-epp:legalForm>%s</sidn-ext-epp:legalForm>'
+                '<sidn-ext-epp:legalFormRegNo>%s</sidn-ext-epp:legalFormRegNo>' % (
+                    legalform, legalformno))
         else:
             kwargs['__custom__'] = '<sidn-ext-epp:legalForm>ANDERS</sidn-ext-epp:legalForm>'
         # SIDN MUST have a dot in the phone#
-        if 'phone' in kwargs: kwargs['phone'] = self.sidnify_phonenumber(kwargs['phone'])
-        if 'fax' in kwargs: kwargs['fax'] = self.sidnify_phonenumber(kwargs['fax'])
+        if 'phone' in kwargs:
+            kwargs['phone'] = self.sidnify_phonenumber(kwargs['phone'])
+        if 'fax' in kwargs:
+            kwargs['fax'] = self.sidnify_phonenumber(kwargs['fax'])
         super(Command, self).__init__(**kwargs)
 
     def sidnify_phonenumber(self, phonenumber):
-        if phonenumber is None or phonenumber.strip() == '': return ''
+        if phonenumber is None or phonenumber.strip() == '':
+            return ''
         phonenumber = phonenumber.strip()
-        if phonenumber[0:2] == '00': phonenumber = '+%s' % phonenumber[2:]
-        if phonenumber[0] == '0': phonenumber = '+31%s' % phonenumber[1:] # SIDN is Dutch
+        if phonenumber[0:2] == '00':
+            phonenumber = '+%s' % phonenumber[2:]
+        if phonenumber[0] == '0':
+            phonenumber = '+31%s' % phonenumber[1:]  # SIDN is Dutch
         phonenumber = phonenumber.replace('-', '.').replace(' ', '.')
         assert phonenumber[0] == '+' and all(i in '0123456789.' for i in phonenumber[1:])
         tmp = phonenumber.split('.', 1)
         if len(tmp) == 2:
             phonenumber = '%s.%s' % (tmp[0], tmp[1].replace('.', ''))
-        else: # for +31 and +46 this works, for +376 it becomes +37.6, but who cares
+        else:  # for +31 and +46 this works, for +376 it becomes +37.6, but who cares
             phonenumber = '%s.%s' % (phonenumber[0:3], phonenumber[3:])
         return phonenumber
 
@@ -242,7 +255,7 @@ class DomainCreate(Command):
         self.registrant = handle
         return self
 
-    def _get_body(self):
+    def _get_custom(self):
         custom = []
 
         if self.ns_list:
@@ -251,8 +264,7 @@ class DomainCreate(Command):
             custom.append('<domain:registrant>%s</domain:registrant>' % self.registrant)
         custom.extend(self.add_list)
 
-        self.variables['__custom__'] = ''.join(custom)
-        return super(DomainCreate, self)._get_body()
+        return super(DomainCreate, self)._get_custom() + ''.join(custom)
 
 
 class DomainDelete(Command):
@@ -293,7 +305,8 @@ class DomainUpdate(Command):
             <domain:name>{domainname}</domain:name>
             {__custom__}
         </domain:update>
-    </update>'''
+    </update>
+    {__extension__}'''
 
     def __init__(self, *args, **kwargs):
         super(DomainUpdate, self).__init__(*args, **kwargs)
@@ -334,7 +347,7 @@ class DomainUpdate(Command):
         self.chg_list.append('<domain:registrant>%s</domain:registrant>' % handle)
         return self
 
-    def _get_body(self):
+    def _get_custom(self):
         custom = []
 
         add_list = self.add_list[:]
@@ -352,8 +365,60 @@ class DomainUpdate(Command):
         if self.chg_list:
             custom.append('<domain:chg>%s</domain:chg>' % ''.join(self.chg_list))
 
-        self.variables['__custom__'] = ''.join(custom)
-        return super(DomainUpdate, self)._get_body()
+        self.variables['__extension__'] = self._get_extension()
+        return super(DomainUpdate, self)._get_custom() + ''.join(custom)
+
+    def _get_extension(self):
+        return ''
+
+
+class DnssecDomainUpdate(DomainUpdate):
+    """
+    <extension>
+      <secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">
+        <secDNS:rem>
+          <secDNS:keyData>
+            <secDNS:flags>257</secDNS:flags>
+            <secDNS:protocol>3</secDNS:protocol>
+            <secDNS:alg>1</secDNS:alg>
+            <secDNS:pubKey>AQPJ////4QQQ</secDNS:pubKey>
+          </secDNS:keyData>
+        </secDNS:rem>
+        <secDNS:add>
+          <secDNS:keyData>
+            <secDNS:flags>257</secDNS:flags>
+            <secDNS:protocol>3</secDNS:protocol>
+            <secDNS:alg>1</secDNS:alg>
+            <secDNS:pubKey>AQPJ////4Q==</secDNS:pubKey>
+          </secDNS:keyData>
+        </secDNS:add>
+      </secDNS:update>
+    </extension>
+    """
+    def __init__(self, *args, **kwargs):
+        super(DnssecDomainUpdate, self).__init__(*args, **kwargs)
+        self.dnskey_add_list = []
+
+    def dnskey_add(self, flags, proto, algo, pubkey):
+        self.dnskey_add_list.append((flags, proto, algo, pubkey))
+
+    def _get_extension(self):
+        custom = []
+
+        if self.dnskey_add_list:
+            custom.append('<extension>')
+            custom.append('<secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">')
+            # custom.append('<secDNS:rem><secDNS:all>true</secDNS:all></secDNS:rem>')
+            for add in self.dnskey_add_list:
+                custom.append('<secDNS:add><secDNS:keyData>')
+                custom.append(
+                    '<secDNS:flags>%d</secDNS:flags><secDNS:protocol>%d</secDNS:protocol>'
+                    '<secDNS:alg>%d</secDNS:alg><secDNS:pubKey>%s</secDNS:pubKey>' % add)
+                custom.append('</secDNS:keyData></secDNS:add>')
+            custom.append('</secDNS:update>')
+            custom.append('</extension>')
+
+        return ''.join(custom)
 
 
 class DomainTransferBase(Command):
@@ -398,28 +463,28 @@ class DomainTransferState(DomainTransferBase):
 
 
 class HostCheck(Command):
-    pass # FIXME: not implemented
+    pass  # FIXME: not implemented
 
 
 class HostCreate(Command):
-    pass # FIXME: not implemented
+    pass  # FIXME: not implemented
 
 
 class HostDelete(Command):
-    pass # FIXME: not implemented
+    pass  # FIXME: not implemented
 
 
 class HostInfo(Command):
-    pass # FIXME: not implemented
+    pass  # FIXME: not implemented
 
 
 class HostUpdate(Command):
-    pass # FIXME: not implemented
-
+    pass  # FIXME: not implemented
 
 
 def main():
-    import eppsocket, eppxml
+    import eppsocket
+    import eppxml
     xml = eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.my-domain-registry.nl'))
     try:
         xml.expect(None, '/epp:epp/epp:greeting')

@@ -49,16 +49,20 @@ def fromdom(instance):
         return etree.tostring(instance)
     return str(instance)
 
+
 def todom(instance):
     if not isinstance(instance, etree._Element):
         return etree.XML(str(instance))
     return instance
 
+
 def pp(dom):
     return etree.tostring(todom(dom), pretty_print=True)
 
+
 def wrap_socket(socket):
     return EppXml(socket)
+
 
 def xpath(dom, expr):
     '''Use as xpath(dom, '//epp:epp/epp:greeting').'''
@@ -67,6 +71,7 @@ def xpath(dom, expr):
         'contact': 'urn:ietf:params:xml:ns:contact-1.0',
         'domain': 'urn:ietf:params:xml:ns:domain-1.0',
     })
+
 
 def main():
     xml = wrap_socket(eppsocket.tcp_connect('testdrs.my-domain-registry.nl'))

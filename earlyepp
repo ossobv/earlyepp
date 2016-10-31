@@ -10,8 +10,11 @@
 class Error(RuntimeError):
     pass
 
+
 def earlyepp(args):
-    import eppsession, eppsocket, eppxml
+    import eppsession
+    import eppsocket
+    import eppxml
 
     if len(args) == 1 and args[0] == 'help':
         print 'SIDN EPP work in progress.'
@@ -43,6 +46,9 @@ def earlyepp(args):
         print '  unxfer = cancel the transfer of a domain to self'
         print '  xfer = transfer to self'
         print '  xinfo = get transfer information'
+        print 'DNSSEC commands:'
+        print '  dnskey_add = Add key (flag=257/256, proto=3, algo=13(ECDSA..), dnskey)'
+        # print '  dnskey_del = Remove key (flag=257/256, proto=3, algo=13(ECDSA..), dnskey)'
         print 'Misc commands:'
         print '  msgs = query server messages'
 
@@ -104,12 +110,18 @@ def earlyepp(args):
         elif args[1] == 'xinfo':
             print 'Get domain transfer information.'
             print 'Command: xinfo DOMAINNAME'
+        elif args[1] == 'dnssec_add':
+            print 'Add DNSSEC key.'
+            print 'Command: dnssec_add DOMAINNAME FLAGS PROTO ALGO DNSKEY (in base64)'
         else:
             raise Error('Unknown command. Try the "help" command')
 
     elif len(args) >= 2 and args[1] in (
             'cchg', 'ccreat', 'cdel', 'cfree', 'cinfo',
-            'del', 'free', 'info', 'msgs', 'reg', 'regcp', 'rel', 'sethnd', 'setns', 'token', 'undel', 'unxfer', 'xfer', 'xinfo'):
+            'del', 'free', 'info', 'msgs', 'reg', 'regcp', 'rel',
+            'sethnd', 'setns', 'token', 'undel', 'unxfer', 'xfer',
+            'xinfo',
+            'dnskey_add'):
         eppid = args.pop(0)
         command = args.pop(0)
         tracefile = None
@@ -140,6 +152,8 @@ def earlyepp(args):
                 setns(session, args[0], args[1:])
             elif len(args) == 2 and command == 'xfer':
                 xfer(session, args[0], args[1])
+            elif len(args) == 5 and command == 'dnskey_add':
+                dnskey_add(session, *args)
             elif len(args) == 1:
                 # Most commands take exactly 1 argument beside the session
                 globals().get(command, globals().get('%s_' % command))(session, args[0])
@@ -166,47 +180,57 @@ def earlyepp(args):
 ########################################################################
 
 def cchg(session, handle, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
-    ret = session.contact(handle).change(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
-            phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
+    session.contact(handle).change(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
+         phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
     print 'changed contact:', handle
+
 
 def ccreat(session, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
     ret = session.contact_create(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
             phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
     print 'created contact:', ret
 
+
 def cdel(session, handle):
-    ret = session.contact(handle).delete()
+    session.contact(handle).delete()
     print 'deleted contact:', handle
+
 
 def cfree(session, handle):
     ret = session.contact_is_free(handle)
     print 'contact availability:', handle, ret
 
+
 def cinfo(session, handle):
     ret = session.contact(handle).verbose_info
     print 'contact info:', handle, ret
+
 
 def del_(session, domainname):
     session.domain(domainname).delete()
     print 'deleted domain:', domainname
 
+
 def free(session, domainname):
     ret = session.domain_is_free(domainname)
     print 'domain availability:', domainname, ret
 
+
 def info(session, domainname):
     ret = session.domain(domainname).verbose_info
     print 'domain info:', domainname, ret
+
 
 def msgs(session):
     ret = session.messages()
     for i in ret:
         print i
 
+
 def rel(session, domainname):
     session.domain(domainname).release()
     print 'released domain:', domainname
+
 
 def reg(session, domainname, ownerhandle, args):
     admin = []
@@ -216,15 +240,16 @@ def reg(session, domainname, ownerhandle, args):
         raise Error('Stray argument: %s' % args[-1])
     for i in range(0, len(args), 2):
         if args[i] == 'admin':
-            admin.append(args[i+1])
+            admin.append(args[i + 1])
         elif args[i] == 'tech':
-            tech.append(args[i+1])
+            tech.append(args[i + 1])
         elif args[i] == 'ns':
-            ns.append(args[i+1])
+            ns.append(args[i + 1])
         else:
             raise Error('Unknown argument type: %s' % args[i])
     session.domain_create(domainname, registrant=(ownerhandle,), admin=admin, tech=tech, nameservers=ns)
     print 'registered domain:', domainname
+
 
 def regcp(session, copy_from_domainname, domainname):
     copy_from_domain = session.domain(copy_from_domainname)
@@ -236,6 +261,15 @@ def regcp(session, copy_from_domainname, domainname):
     session.domain_create(domainname, registrant=owners, admin=admin, tech=tech, nameservers=ns)
     print 'registered domain:', domainname
 
+
+def dnskey_add(session, domainname, flags, protocol, algo, pubkey):
+    domain = session.domain(domainname)
+    domain.dnskey_add(
+        flags=int(flags), protocol=int(protocol),
+        algo=int(algo), pubkey=pubkey)
+    print 'dnskey added'
+
+
 def sethnd(session, domainname, ownerhandle, args):
     admin = []
     tech = []
@@ -243,9 +277,9 @@ def sethnd(session, domainname, ownerhandle, args):
         raise Error('Stray argument: %s' % args[-1])
     for i in range(0, len(args), 2):
         if args[i] == 'admin':
-            admin.append(args[i+1])
+            admin.append(args[i + 1])
         elif args[i] == 'tech':
-            tech.append(args[i+1])
+            tech.append(args[i + 1])
         else:
             raise Error('Unknown argument type: %s' % args[i])
 
@@ -266,6 +300,7 @@ def sethnd(session, domainname, ownerhandle, args):
     ret = domain.get_handles()
     print 'handles after:', domainname, ret
 
+
 def setns(session, domainname, nslist):
     domain = session.domain(domainname)
     ret = domain.get_nameservers()
@@ -274,21 +309,26 @@ def setns(session, domainname, nslist):
     ret = domain.get_nameservers()
     print 'nameservers after:', domainname, ret
 
+
 def token(session, domainname):
     ret = session.domain(domainname).token
     print 'domain token:', domainname, ret
+
 
 def undel(session, domainname):
     session.domain(domainname).undelete()
     print 'undeleted domain:', domainname
 
+
 def unxfer(session, domainname):
-    ret = session.domain(domainname).untransfer()
+    session.domain(domainname).untransfer()
     print 'cancelled domain transfer:', domainname
+
 
 def xfer(session, domainname, token):
     ret = session.domain(domainname).transfer(token)
     print 'initiated transfer:', domainname, ret
+
 
 def xinfo(session, domainname):
     ret = session.domain(domainname).transfer_info

@@ -1,26 +1,31 @@
 # vim: set ts=8 sw=4 sts=4 et ai:
 # Copyright (C) 2011, OSSO B.V., Walter Doekes
-import socket, sys
+import socket
+import sys
 try:
     from ssl import wrap_socket as ssl_socket
 except ImportError:
     class ssl_socket:
         def __init__(self, socket):
             self.socket = socket
+
         def __getattr__(self, name):
             return getattr(self.socket, name)
+
         def connect(self, *args, **kwargs):
             self.socket.connect(*args, **kwargs)
             self.ssl = socket.ssl(self.socket)
+
         def read(self, *args, **kwargs):
             return self.ssl.read(*args, **kwargs)
         recv = read
+
         def write(self, *args, **kwargs):
             return self.ssl.write(*args, **kwargs)
         send = write
 
 
-IANA_TCP_PORT = 700 # the default TCP port for EPP
+IANA_TCP_PORT = 700  # the default TCP port for EPP
 
 
 class EppSocket(object):
@@ -39,7 +44,7 @@ class EppSocket(object):
         assert self.socket is not None
         length = self.socket.recv(4)
         length = (ord(length[0]) << 24 | ord(length[1]) << 16 | ord(length[2]) << 8 | ord(length[3])) - 4
-        #print 'attempting to read %d bytes\n' % length
+        # print 'attempting to read %d bytes\n' % length
         data = ''
         while len(data) < length:
             data += self.socket.recv(length - len(data))
@@ -81,13 +86,13 @@ def tcp_connect(address, ssl=True, tracefile=None):
     # Lookup addresses
     addresses = socket.getaddrinfo(address[0], address[1])
     addresses = [i for i in addresses if (i[0] == socket.AF_INET or i[0] == socket.AF_INET6) and i[1] == socket.SOCK_STREAM]
-    addresses.sort(key=lambda x: x[0], reverse=True) # AF_INET6 sorts before AF_INET
+    addresses.sort(key=lambda x: x[0], reverse=True)  # AF_INET6 sorts before AF_INET
 
-    for address in addresses: # should be nonempty, or we have a previous gaierror
+    for address in addresses:  # should be nonempty, or we have a previous gaierror
         try:
             sock = socket.socket(*address[0:3])
             if ssl:
-                ssl_sock = ssl_socket(sock) # skip certificate checks
+                ssl_sock = ssl_socket(sock)  # skip certificate checks
                 ssl_sock.connect(address[4])
                 sock = ssl_sock
             break
