@@ -323,8 +323,11 @@ class EppSession(object):
             # See: http://lxml.de/xpathxslt.html
             namespaces = self._info().nsmap.copy()
             namespaces.pop(None)
-            iterator = self._info().xpath(
-                '//secDNS:infData', namespaces=namespaces)[0].iterchildren()
+            if 'secDNS' in namespaces:
+                iterator = self._info().xpath(
+                    '//secDNS:infData', namespaces=namespaces)[0].iterchildren()
+            else:
+                iterator = []
             dnskeys = [self.Dnskey.from_xml(i) for i in iterator]
             dnskeys.sort(key=(
                 lambda x: (x.protocol, -x.flags, x.algo, x.key)))
