@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # vim: set ts=8 sw=4 sts=4 et ai:
-# Copyright (C) 2011, OSSO B.V., Walter Doekes
+# let g:flake8_ignore="E501"
+# Copyright (C) 2011,2016 OSSO B.V., Walter Doekes
 
 
 ########################################################################
@@ -39,6 +40,8 @@ def earlyepp(args):
         print '  reg = register a domain'
         print '  regcp = register a domain using info from other'
         print '  rel = release a domain (approve transfer)'
+        print '  setksk = set dnssec KSK(257) (algo=13(ECDSA..), dnskey)'
+        print '  setzsk = set dnssec ZSK(256) (algo=13(ECDSA..), dnskey)'
         print '  sethnd = (re)set handles'
         print '  setns = (re)set nameservers'
         print '  token = get domain token for away transfer'
@@ -95,6 +98,12 @@ def earlyepp(args):
         elif args[1] == 'setns':
             print 'Set the nameservers for the domain name.'
             print 'Usage: setns DOMAINNAME NAMESERVER...'
+        elif args[1] == 'setksk':
+            print 'Set the KSKs for the domain name.'
+            print 'Usage: setksk DOMAINNAME ALGONUM PUBKEY...'
+        elif args[1] == 'setzsk':
+            print 'Set the ZSKs for the domain name.'
+            print 'Usage: setzsk DOMAINNAME ALGONUM PUBKEY...'
         elif args[1] == 'token':
             print 'Get the transfer token for the (your) domain.'
             print 'Usage: token DOMAINNAME'
@@ -119,8 +128,8 @@ def earlyepp(args):
     elif len(args) >= 2 and args[1] in (
             'cchg', 'ccreat', 'cdel', 'cfree', 'cinfo',
             'del', 'free', 'info', 'msgs', 'reg', 'regcp', 'rel',
-            'sethnd', 'setns', 'token', 'undel', 'unxfer', 'xfer',
-            'xinfo',
+            'sethnd', 'setns', 'setksk', 'setzsk',
+            'token', 'undel', 'unxfer', 'xfer', 'xinfo',
             'dnskey_add'):
         eppid = args.pop(0)
         command = args.pop(0)
@@ -150,6 +159,10 @@ def earlyepp(args):
                 sethnd(session, args[0], args[1], args[2:])
             elif len(args) >= 1 and command == 'setns':
                 setns(session, args[0], args[1:])
+            elif len(args) >= 3 and command == 'setksk':
+                setdnskeys(session, args[0], 'KSK', args[1], args[2:])
+            elif len(args) >= 3 and command == 'setzsk':
+                setdnskeys(session, args[0], 'ZSK', args[1], args[2:])
             elif len(args) == 2 and command == 'xfer':
                 xfer(session, args[0], args[1])
             elif len(args) == 5 and command == 'dnskey_add':
@@ -180,14 +193,18 @@ def earlyepp(args):
 ########################################################################
 
 def cchg(session, handle, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
-    session.contact(handle).change(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
-         phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
+    session.contact(handle).change(
+        name=name, street=street, housenr=housenr, zipcode=zipcode,
+        city=city, countrycode=countrycode, phone=phone, fax=fax,
+        email=email, legalform=legalform, legalformno=legalformno)
     print 'changed contact:', handle
 
 
 def ccreat(session, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
-    ret = session.contact_create(name=name, street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
-            phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno)
+    ret = session.contact_create(
+        name=name, street=street, housenr=housenr, zipcode=zipcode,
+        city=city, countrycode=countrycode, phone=phone, fax=fax,
+        email=email, legalform=legalform, legalformno=legalformno)
     print 'created contact:', ret
 
 
@@ -308,6 +325,38 @@ def setns(session, domainname, nslist):
     domain.set_nameservers(nslist)
     ret = domain.get_nameservers()
     print 'nameservers after:', domainname, ret
+
+
+def setdnskeys(session, domainname, keytype, algo, dnskeys):
+    algo = int(algo)
+    flag_filter = {'KSK': 257, 'ZSK': 256}[keytype]
+    domain = session.domain(domainname)
+    ret = domain.get_dnskeys(flag_filter)
+    print 'dnskeys before:', domainname, keytype
+    print ' ', '\n  '.join(repr(i) for i in ret)
+
+    to_add = list(dnskeys)
+    to_remove = []
+    for old in ret:
+        assert old.flags == flag_filter
+        assert old.protocol == 3
+        if old.algo != algo or old.key not in dnskeys:
+            to_remove.append(old)
+        elif old.algo == algo and old.key in dnskeys:
+            to_add.remove(old.key)
+    to_add = [
+        domain.Dnskey(protocol=3, flags=flag_filter, alg=algo, pubKey=i)
+        for i in to_add if i]
+
+    if to_add or to_remove:
+        domain.set_dnskeys(to_add, to_remove)
+
+        domain = session.domain(domainname)
+        ret = domain.get_dnskeys(flag_filter)
+        print 'dnskeys after:', domainname, keytype
+        print ' ', '\n  '.join(repr(i) for i in ret)
+    else:
+        print 'dnskeys, no change'
 
 
 def token(session, domainname):

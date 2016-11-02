@@ -1,5 +1,5 @@
 # vim: set ts=8 sw=4 sts=4 et ai:
-# Copyright (C) 2011, OSSO B.V., Walter Doekes
+# Copyright (C) 2011,2016, OSSO B.V., Walter Doekes
 if not hasattr('', 'format'):
     from string import Template
     import re
@@ -398,17 +398,27 @@ class DnssecDomainUpdate(DomainUpdate):
     def __init__(self, *args, **kwargs):
         super(DnssecDomainUpdate, self).__init__(*args, **kwargs)
         self.dnskey_add_list = []
+        self.dnskey_remove_list = []
 
     def dnskey_add(self, flags, proto, algo, pubkey):
         self.dnskey_add_list.append((flags, proto, algo, pubkey))
 
+    def dnskey_remove(self, flags, proto, algo, pubkey):
+        self.dnskey_remove_list.append((flags, proto, algo, pubkey))
+
     def _get_extension(self):
         custom = []
 
-        if self.dnskey_add_list:
+        if self.dnskey_add_list or self.dnskey_remove_list:
             custom.append('<extension>')
             custom.append('<secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">')
             # custom.append('<secDNS:rem><secDNS:all>true</secDNS:all></secDNS:rem>')
+            for remove in self.dnskey_remove_list:
+                custom.append('<secDNS:rem><secDNS:keyData>')
+                custom.append(
+                    '<secDNS:flags>%d</secDNS:flags><secDNS:protocol>%d</secDNS:protocol>'
+                    '<secDNS:alg>%d</secDNS:alg><secDNS:pubKey>%s</secDNS:pubKey>' % remove)
+                custom.append('</secDNS:keyData></secDNS:rem>')
             for add in self.dnskey_add_list:
                 custom.append('<secDNS:add><secDNS:keyData>')
                 custom.append(

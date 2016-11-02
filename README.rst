@@ -42,28 +42,6 @@ Stuff for DNSSEC::
       </secDNS:create>
     </extension>
 
-    # update
-    <extension>
-      <secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">
-        <secDNS:rem>
-          <secDNS:keyData>
-            <secDNS:flags>257</secDNS:flags>
-            <secDNS:protocol>3</secDNS:protocol>
-            <secDNS:alg>1</secDNS:alg>
-            <secDNS:pubKey>AQPJ////4QQQ</secDNS:pubKey>
-          </secDNS:keyData>
-        </secDNS:rem>
-        <secDNS:add>
-          <secDNS:keyData>
-            <secDNS:flags>257</secDNS:flags>
-            <secDNS:protocol>3</secDNS:protocol>
-            <secDNS:alg>1</secDNS:alg>
-            <secDNS:pubKey>AQPJ////4Q==</secDNS:pubKey>
-          </secDNS:keyData>
-        </secDNS:add>
-      </secDNS:update>
-    </extension>
-
 See also:
 
 * http://dnsviz.net/d/sidn.nl/dnssec/

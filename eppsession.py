@@ -1,5 +1,6 @@
 # vim: set ts=8 sw=4 sts=4 et ai:
-# Copyright (C) 2011, OSSO B.V., Walter Doekes
+# let g:flake8_ignore="E501"
+# Copyright (C) 2011,2016, OSSO B.V., Walter Doekes
 from base64 import b64decode
 
 from eppcommand import (
@@ -200,9 +201,12 @@ class EppSession(object):
 
         def change(self, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
             ''' Update contact info (everything at once). '''
-            self._session._exec(ContactUpdate(handle=self._handle, name=name,
-                    street=street, housenr=housenr, zipcode=zipcode, city=city, countrycode=countrycode,
-                    phone=phone, fax=fax, email=email, legalform=legalform, legalformno=legalformno))
+            self._session._exec(ContactUpdate(
+                handle=self._handle, name=name, street=street,
+                housenr=housenr, zipcode=zipcode, city=city,
+                countrycode=countrycode, phone=phone, fax=fax,
+                email=email, legalform=legalform,
+                legalformno=legalformno))
             self._cache = {}
 
         def delete(self):
@@ -215,6 +219,25 @@ class EppSession(object):
     ####################################################################
 
     class Domain(object):
+        class Dnskey(object):
+            @classmethod
+            def from_xml(cls, xml):
+                # flags, protocol, alg, pubkey
+                kwargs = dict(
+                    (i.tag.rsplit('}', 1)[-1], i.text)
+                    for i in xml.iterchildren())
+                return cls(**kwargs)
+
+            def __init__(self, protocol, flags, alg, pubKey):
+                self.protocol = int(protocol)   # 3=DNSSEC
+                self.flags = int(flags)         # 257=KSK, 256=ZSK
+                self.algo = int(alg)            # 13=ECDSA..
+                self.key = pubKey               # public key in base64
+
+            def __repr__(self):
+                return '<Dnskey(%d,%d,%d,%s)>' % (
+                    self.protocol, self.flags, self.algo, self.key)
+
         def __init__(self, session, domainname):
             self._cache = {}
             self._session = session
@@ -291,6 +314,34 @@ class EppSession(object):
             if has_edits:
                 self._session._exec(update_cmd)
                 self._cache = {}
+
+        def get_dnskeys(self, flags=None):
+            ''' Returns a set of DNSSEC keys. '''
+            # If we don't pass the namespace explicitly, it will fail with:
+            #   #xpath(self._info(), '/secDNS:infData') ==>
+            #   *** XPathEvalError: Undefined namespace prefix
+            # See: http://lxml.de/xpathxslt.html
+            namespaces = self._info().nsmap.copy()
+            namespaces.pop(None)
+            iterator = self._info().xpath(
+                '//secDNS:infData', namespaces=namespaces)[0].iterchildren()
+            dnskeys = [self.Dnskey.from_xml(i) for i in iterator]
+            dnskeys.sort(key=(
+                lambda x: (x.protocol, -x.flags, x.algo, x.key)))
+
+            if flags:
+                dnskeys = tuple(i for i in dnskeys if i.flags == flags)
+
+            return tuple(dnskeys)
+
+        def set_dnskeys(self, to_add, to_remove):
+            update_cmd = DnssecDomainUpdate(domainname=self._domainname)
+            for add in to_add:
+                update_cmd.dnskey_add(add.flags, add.protocol, add.algo, add.key)
+            for remove in to_remove:
+                update_cmd.dnskey_remove(remove.flags, remove.protocol, remove.algo, remove.key)
+            self._session._exec(update_cmd)
+            self._cache = {}
 
         def get_nameservers(self):
             ''' Returns a set of nameservers. '''
