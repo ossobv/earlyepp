@@ -90,19 +90,20 @@ class Logout(Command):
 
 class MessageQueueBase(Command):
     ''' Message queue polling base. '''
-    template = u'''<poll op="{op}"{__custom__}/>'''
+    template = u'''<poll op="{op}"{poll_attrs}/>'''
 
 
 class MessageQueueReadFirst(MessageQueueBase):
     ''' Poll for new messages in the message queue. '''
     def __init__(self):
-        super(MessageQueueReadFirst, self).__init__(op='req', __custom__='')
+        super(MessageQueueReadFirst, self).__init__(op='req', poll_attrs='')
 
 
 class MessageQueueRemoveFirst(MessageQueueBase):
     ''' Remove the first message in the message queue. '''
     def __init__(self, msgid):
-        super(MessageQueueRemoveFirst, self).__init__(op='ack', __custom__=(' msgID="%s"' % msgid))
+        super(MessageQueueRemoveFirst, self).__init__(
+            op='ack', poll_attrs=(' msgID="%s"' % msgid))
 
 
 class ContactCheck(Command):
@@ -140,26 +141,35 @@ class ContactCreateUpdateBase(Command):
             {__endchg__}
         </contact:{__cmd__}>
     </{__cmd__}>
-    <extension>
-        <sidn-ext-epp:ext xmlns:sidn-ext-epp="http://rxsd.my-domain-registry.nl/sidn-ext-epp-1.0">
-            <sidn-ext-epp:create>
-                <sidn-ext-epp:contact>
-                    {__custom__}
-                </sidn-ext-epp:contact>
-            </sidn-ext-epp:create>
-        </sidn-ext-epp:ext>
-    </extension>'''
+    {legalform_xml}
+    '''
 
     def __init__(self, legalform=None, legalformno=None, **kwargs):
-        if legalform is not None:
-            assert legalform in 'BGG BRO BV BVI/O COOP CV EENMANSZAAK EESV KERK MAATSCHAP NV OWM PERSOON REDR STICHTING VERENIGING VOF'.split()
-            assert legalformno is not None
-            kwargs['__custom__'] = (
-                '<sidn-ext-epp:legalForm>%s</sidn-ext-epp:legalForm>'
-                '<sidn-ext-epp:legalFormRegNo>%s</sidn-ext-epp:legalFormRegNo>' % (
-                    legalform, legalformno))
-        else:
-            kwargs['__custom__'] = '<sidn-ext-epp:legalForm>ANDERS</sidn-ext-epp:legalForm>'
+        if kwargs['__cmd__'] == 'create':
+            if legalform is not None:
+                assert legalform in (
+                    'BGG BRO BV BVI/O COOP CV EENMANSZAAK EESV KERK '
+                    'MAATSCHAP NV OWM PERSOON REDR STICHTING '
+                    'VERENIGING VOF'.split())
+                assert legalformno is not None
+                legalform_xml = (
+                    '<sidn-ext-epp:legalForm>%s</sidn-ext-epp:legalForm>'
+                    '<sidn-ext-epp:legalFormRegNo>%s</sidn-ext-epp:legalFormRegNo>' % (
+                        legalform, legalformno))
+            else:
+                legalform_xml = '<sidn-ext-epp:legalForm>ANDERS</sidn-ext-epp:legalForm>'
+            kwargs['legalform_xml'] = ('''
+                <extension>
+                    <sidn-ext-epp:ext xmlns:sidn-ext-epp="http://rxsd.my-domain-registry.nl/sidn-ext-epp-1.0">
+                        <sidn-ext-epp:create>
+                            <sidn-ext-epp:contact>
+                                {legalform_xml}
+                            </sidn-ext-epp:contact>
+                        </sidn-ext-epp:create>
+                    </sidn-ext-epp:ext>
+                </extension>
+            ''').format(legalform_xml=legalform_xml)
+
         # SIDN MUST have a dot in the phone#
         if 'phone' in kwargs:
             kwargs['phone'] = self.sidnify_phonenumber(kwargs['phone'])
@@ -436,22 +446,18 @@ class DomainTransferBase(Command):
     template = u'''<transfer op="{op}">
         <domain:transfer xmlns:domain="urn:ietf:params:xml:ns:domain-1.0">
             <domain:name>{domainname}</domain:name>
-            {__custom__}
+            {transfer_xml}
         </domain:transfer>
     </transfer>'''
-
-    def __init__(self, domainname, op, __custom__=''):
-        super(DomainTransferBase, self).__init__(domainname=domainname, op=op, __custom__=__custom__)
 
 
 class DomainTransfer(DomainTransferBase):
     ''' Request transfer of a domain. '''
     def __init__(self, domainname, token):
         super(DomainTransfer, self).__init__(
-            domainname=domainname,
-            op='request',
-            __custom__='<domain:authInfo><domain:pw>%s</domain:pw></domain:authInfo>' % token,
-        )
+            domainname=domainname, op='request', transfer_xml=(
+                ('<domain:authInfo><domain:pw>%s</domain:pw>'
+                 '</domain:authInfo>' % token)))
 
 
 class DomainTransferApprove(DomainTransferBase):
@@ -500,9 +506,9 @@ def main():
         xml.expect(None, '/epp:epp/epp:greeting')
         xml.expect(Login(username='123456', password='aaaaaaaaaa'), XPATH_OK)
         x = xml.expect(ContactCheck(handle='DOE001234-ADMIN'), XPATH_OK)
-        print eppxml.pp(x)
+        print(eppxml.pp(x))
         x = xml.expect(ContactInfo(handle='DOE001234-ADMIN'), XPATH_OK)
-        print eppxml.pp(x)
+        print(eppxml.pp(x))
         # xml.expect(DomainInfo(domainname='now-power.nl'), 'abc')
         # create_cmd = DomainCreate(domainname='now-power.nl').add_nameserver('ns1.example.nl').set_registrant('DOE001234-REGIS').add_admin('DOE001234-ADMIN').add_tech('DOE001234-TECHC')
         # xml.expect(create_cmd, XPATH_OK)
@@ -515,14 +521,14 @@ def main():
         # print eppxml.pp(x)
         # x = xml.expect(DomainInfo(domainname='google.nl'), XPATH_OK)
         # x = xml.expect(DomainInfo(domainname='nu.nl'), XPATH_OK)
-    except eppxml.UnexpectedData, e:
-        print '== ERROR =='
-        print e
-        print
-        print '== SENT =='
-        print eppxml.pp(e.output)
-        print '== RECEIVED =='
-        print eppxml.pp(e.input)
+    except eppxml.UnexpectedData as e:
+        print('== ERROR ==')
+        print(e)
+        print()
+        print('== SENT ==')
+        print(eppxml.pp(e.output))
+        print('== RECEIVED ==')
+        print(eppxml.pp(e.input))
     finally:
         xml.expect(Logout(), '/epp:epp/epp:response/epp:result[@code="1500"]')
 
