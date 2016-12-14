@@ -139,6 +139,10 @@ class ContactCreateUpdateBase(Command):
             <contact:voice>{phone}</contact:voice>
             <contact:fax>{fax}</contact:fax><!-- opt -->
             <contact:email>{email}</contact:email>
+            <!--<contact:disclose flag="0">
+                <contact:voice/>
+                <contact:email/>
+            </contact:disclose>--><!-- unused for now -->
             <contact:authInfo><contact:pw>UNUSED_BY_SIDN</contact:pw></contact:authInfo>
             {__endchg__}
         </contact:{__cmd__}>
