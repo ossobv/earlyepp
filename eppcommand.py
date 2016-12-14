@@ -117,7 +117,8 @@ class ContactCheck(Command):
 class ContactCreateUpdateBase(Command):
     # SIDN supports exactly one postalInfo and only type loc.
     template = u'''<{__cmd__}>
-        <contact:{__cmd__} xmlns:contact="urn:ietf:params:xml:ns:contact-1.0">
+        <contact:{__cmd__} xmlns:contact="urn:ietf:params:xml:ns:contact-1.0"
+                xsi:schemaLocation="urn:ietf:params:xml:ns:contact-1.0 contact-1.0.xsd">
             <contact:id>{handle}</contact:id>
             {__beginchg__}
             <contact:postalInfo type="loc">
@@ -130,6 +131,7 @@ class ContactCreateUpdateBase(Command):
                     <contact:street>{street}</contact:street>
                     <contact:street>{housenr}</contact:street>
                     <contact:city>{city}</contact:city>
+                    <!--<contact:sp>Limburg</contact:sp>-->
                     <contact:pc>{zipcode}</contact:pc>
                     <contact:cc>{countrycode}</contact:cc>
                 </contact:addr>
@@ -153,22 +155,25 @@ class ContactCreateUpdateBase(Command):
                     'VERENIGING VOF'.split())
                 assert legalformno is not None
                 legalform_xml = (
-                    '<sidn-ext-epp:legalForm>%s</sidn-ext-epp:legalForm>'
-                    '<sidn-ext-epp:legalFormRegNo>%s</sidn-ext-epp:legalFormRegNo>' % (
+                    '<sidn:legalForm>%s</sidn:legalForm>'
+                    '<sidn:legalFormRegNo>%s</sidn:legalFormRegNo>' % (
                         legalform, legalformno))
             else:
-                legalform_xml = '<sidn-ext-epp:legalForm>ANDERS</sidn-ext-epp:legalForm>'
+                legalform_xml = '<sidn:legalForm>ANDERS</sidn:legalForm>'
             kwargs['legalform_xml'] = ('''
                 <extension>
-                    <sidn-ext-epp:ext xmlns:sidn-ext-epp="http://rxsd.my-domain-registry.nl/sidn-ext-epp-1.0">
-                        <sidn-ext-epp:create>
-                            <sidn-ext-epp:contact>
+                    <sidn:ext xmlns:sidn="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0"
+                            xsi:schemaLocation="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0 sidn-ext-epp-1.0.xsd">
+                        <sidn:create>
+                            <sidn:contact>
                                 {legalform_xml}
-                            </sidn-ext-epp:contact>
-                        </sidn-ext-epp:create>
-                    </sidn-ext-epp:ext>
+                            </sidn:contact>
+                        </sidn:create>
+                    </sidn:ext>
                 </extension>
             ''').format(legalform_xml=legalform_xml)
+        else:
+            kwargs['legalform_xml'] = ''
 
         # SIDN MUST have a dot in the phone#
         if 'phone' in kwargs:
