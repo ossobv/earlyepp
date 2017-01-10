@@ -166,7 +166,7 @@ class EppSession(object):
                 if keep:
                     break  # before we start popping queued messages
                 self._exec(MessageQueueRemoveFirst(msgid=message_info.attrib['id']))  # pop message
-
+            else:
                 raise UnexpectedData(readfirst_cmd, value, '/epp:epp/epp:response/epp:result[@code] code 1300 or 1301')
 
         # Increase the list size to the message count
