@@ -335,6 +335,9 @@ def setdnskeys(session, domainname, keytype, algo, dnskeys):
     print 'dnskeys before:', domainname, keytype
     print ' ', '\n  '.join(repr(i) for i in ret)
 
+    if any(len(i) < 10 for i in dnskeys):
+        raise ValueError('short dnskeys? usage: setksk ALGO KEY1 [KEY2 [KEY3]]')
+
     to_add = list(dnskeys)
     to_remove = []
     for old in ret:
