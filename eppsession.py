@@ -7,9 +7,9 @@ from eppcommand import (
     Login, Logout,
     ContactCreate, ContactCheck, ContactDelete, ContactInfo, ContactUpdate,
     DomainCheck, DomainCreate, DomainDelete, DomainDeleteCancel, DomainInfo,
+    DomainRenew, DomainUpdate,
     DomainTransfer, DomainTransferApprove, DomainTransferCancel,
-    DomainTransferState, DomainUpdate,
-    DnssecDomainUpdate,
+    DomainTransferState, DnssecDomainUpdate,
     MessageQueueReadFirst, MessageQueueRemoveFirst)
 from eppxml import pp, xpath, UnexpectedData
 
@@ -364,6 +364,15 @@ class EppSession(object):
                     update_cmd.remove_nameserver(i)
                 self._session._exec(update_cmd)
                 self._cache = {}
+
+        def get_period(self):
+            raise NotImplementedError()
+
+        def set_period(self, period):
+            assert period in (1, 3, 12), period
+            renew_cmd = DomainRenew(domainname=self._domainname, period=period)
+            self._session._exec(renew_cmd)
+            self._cache = {}
 
         # DNSSEC
 

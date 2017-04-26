@@ -21,7 +21,8 @@ __all__ = (
     # Contact commands take (handle)
     'ContactCheck', 'ContactCreate', 'ContactDelete', 'ContactInfo', 'ContactUpdate',
     # Domain commands take (domainname)
-    'DomainCheck', 'DomainCreate', 'DomainDelete', 'DomainDeleteCancel', 'DomainInfo', 'DomainUpdate',
+    'DomainCheck', 'DomainCreate', 'DomainDelete', 'DomainDeleteCancel', 'DomainInfo',
+    'DomainRenew', 'DomainUpdate',
     'DomainTransfer', 'DomainTransferApprove', 'DomainTransferCancel', 'DomainTransferState',
     # DNSSEC commands
     'DnssecDomainUpdate',
@@ -316,6 +317,19 @@ class DomainInfo(Command):
             <domain:name hosts="all">{domainname}</domain:name>
         </domain:info>
     </info>'''
+
+
+class DomainRenew(Command):
+    ''' Update renewal/subscription info. '''
+    template = u'''<renew>
+      <domain:renew xmlns:domain="urn:ietf:params:xml:ns:domain-1.0">
+        <domain:name>{domainname}</domain:name>
+        <!-- curExpDate is not used by SIDN -->
+        <domain:curExpDate>1970-01-01</domain:curExpDate>
+        <domain:period unit="m">{period}</domain:period>
+        {__custom__}
+      </domain:renew>
+    </renew>'''
 
 
 class DomainUpdate(Command):
