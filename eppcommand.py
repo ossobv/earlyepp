@@ -41,12 +41,13 @@ class Base(object):
         self.variables.update(kwargs)
 
     def __str__(self):
-        return '%s%s%s%s' % (
+        ret = '%s%s%s%s' % (
             '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
             '<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
             self._get_body().encode('UTF-8'),
             '</epp>'
         )
+        return ret
 
     def toxml(self, encoding='UTF-8'):
         assert encoding == 'UTF-8'
@@ -79,7 +80,7 @@ class Login(Command):
             <objURI>urn:ietf:params:xml:ns:contact-1.0</objURI>
             <objURI>urn:ietf:params:xml:ns:host-1.0</objURI>
             <objURI>urn:ietf:params:xml:ns:domain-1.0</objURI>
-            <svcExtension><extURI>http://rxsd.my-domain-registry.nl/sidn-ext-epp-1.0</extURI></svcExtension>
+            <svcExtension><extURI>http://rxsd.domain-registry.nl/sidn-ext-epp-1.0</extURI></svcExtension>
         </svcs>
     </login>'''
 
@@ -298,7 +299,7 @@ class DomainDelete(Command):
 class DomainDeleteCancel(Base):
     ''' Undelete a domain (within a certain period of time). '''
     template = u'''<extension>
-        <sidn-ext-epp:command xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sidn-ext-epp="http://rxsd.my-domain-registry.nl/sidn-ext-epp-1.0">
+        <sidn-ext-epp:command xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sidn-ext-epp="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0">
             <sidn-ext-epp:domainCancelDelete>
                 <sidn-ext-epp:name>{domainname}</sidn-ext-epp:name>
             </sidn-ext-epp:domainCancelDelete>
@@ -510,7 +511,7 @@ class HostUpdate(Command):
 def main():
     import eppsocket
     import eppxml
-    xml = eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.my-domain-registry.nl'))
+    xml = eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.domain-registry.nl'))
     try:
         xml.expect(None, '/epp:epp/epp:greeting')
         xml.expect(Login(username='123456', password='aaaaaaaaaa'), XPATH_OK)
