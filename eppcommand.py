@@ -19,11 +19,13 @@ __all__ = (
     # MessageQueueRemoveFirst takes (msgid)
     'MessageQueueReadFirst', 'MessageQueueRemoveFirst',
     # Contact commands take (handle)
-    'ContactCheck', 'ContactCreate', 'ContactDelete', 'ContactInfo', 'ContactUpdate',
+    'ContactCheck', 'ContactCreate', 'ContactDelete', 'ContactInfo',
+    'ContactUpdate',
     # Domain commands take (domainname)
-    'DomainCheck', 'DomainCreate', 'DomainDelete', 'DomainDeleteCancel', 'DomainInfo',
-    'DomainRenew', 'DomainUpdate',
-    'DomainTransfer', 'DomainTransferApprove', 'DomainTransferCancel', 'DomainTransferState',
+    'DomainCheck', 'DomainCreate', 'DomainDelete', 'DomainDeleteCancel',
+    'DomainInfo', 'DomainRenew', 'DomainUpdate',
+    'DomainTransfer', 'DomainTransferApprove', 'DomainTransferCancel',
+    'DomainTransferState',
     # DNSSEC commands
     'DnssecDomainUpdate',
     # Host commands take (domainname) (used for setting up nameserver glue)
@@ -42,9 +44,10 @@ class Base(object):
         self.variables.update(kwargs)
 
     def __str__(self):
-        ret = '%s%s%s%s' % (
+        ret = '%s%s%s%s%s' % (
             '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-            '<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+            '<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"',
+            ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
             self._get_body().encode('UTF-8'),
             '</epp>'
         )
@@ -64,7 +67,8 @@ class Command(Base):
 
     def _get_body(self):
         self.variables['__custom__'] = self._get_custom()
-        return '<command>%s</command>' % str_format(self.template, **self.variables)
+        return '<command>%s</command>' % str_format(
+            self.template, **self.variables)
 
 
 class Hello(Base):
@@ -197,18 +201,23 @@ class ContactCreateUpdateBase(Command):
         if phonenumber[0] == '0':
             phonenumber = '+31%s' % phonenumber[1:]  # SIDN is Dutch
         phonenumber = phonenumber.replace('-', '.').replace(' ', '.')
-        assert phonenumber[0] == '+' and all(i in '0123456789.' for i in phonenumber[1:])
+        assert phonenumber[0] == '+' and all(
+            i in '0123456789.' for i in phonenumber[1:])
         tmp = phonenumber.split('.', 1)
         if len(tmp) == 2:
             phonenumber = '%s.%s' % (tmp[0], tmp[1].replace('.', ''))
-        else:  # for +31 and +46 this works, for +376 it becomes +37.6, but who cares
+        else:
+            # for +31 and +46 this works, for +376 it becomes +37.6, but
+            # who cares
             phonenumber = '%s.%s' % (phonenumber[0:3], phonenumber[3:])
         return phonenumber
 
 
 class ContactCreate(ContactCreateUpdateBase):
     def __init__(self, **kwargs):
-        super(ContactCreate, self).__init__(__cmd__='create', __beginchg__='', __endchg__='', handle='UNUSED_BY_SIDN', **kwargs)
+        super(ContactCreate, self).__init__(
+            __cmd__='create', __beginchg__='', __endchg__='',
+            handle='UNUSED_BY_SIDN', **kwargs)
 
 
 class ContactDelete(Command):
@@ -229,7 +238,9 @@ class ContactInfo(Command):
 
 class ContactUpdate(ContactCreateUpdateBase):
     def __init__(self, **kwargs):
-        super(ContactUpdate, self).__init__(__cmd__='update', __beginchg__='<contact:chg>', __endchg__='</contact:chg>', **kwargs)
+        super(ContactUpdate, self).__init__(
+            __cmd__='update', __beginchg__='<contact:chg>',
+            __endchg__='</contact:chg>', **kwargs)
 
 
 class DomainCheck(Command):
@@ -260,15 +271,18 @@ class DomainCreate(Command):
         self.registrant = None
 
     def add_nameserver(self, nameserver):
-        self.ns_list.append('<domain:hostObj>%s</domain:hostObj>' % nameserver)
+        self.ns_list.append(
+            '<domain:hostObj>%s</domain:hostObj>' % nameserver)
         return self
 
     def add_admin(self, handle):
-        self.add_list.append('<domain:contact type="admin">%s</domain:contact>' % handle)
+        self.add_list.append(
+            '<domain:contact type="admin">%s</domain:contact>' % handle)
         return self
 
     def add_tech(self, handle):
-        self.add_list.append('<domain:contact type="tech">%s</domain:contact>' % handle)
+        self.add_list.append(
+            '<domain:contact type="tech">%s</domain:contact>' % handle)
         return self
 
     def set_registrant(self, handle):
@@ -280,9 +294,11 @@ class DomainCreate(Command):
         custom = []
 
         if self.ns_list:
-            custom.append('<domain:ns>%s</domain:ns>' % ''.join(self.ns_list))
+            custom.append(
+                '<domain:ns>%s</domain:ns>' % ''.join(self.ns_list))
         if self.registrant is not None:
-            custom.append('<domain:registrant>%s</domain:registrant>' % self.registrant)
+            custom.append(
+                '<domain:registrant>%s</domain:registrant>' % self.registrant)
         custom.extend(self.add_list)
 
         return super(DomainCreate, self)._get_custom() + ''.join(custom)
@@ -300,7 +316,8 @@ class DomainDelete(Command):
 class DomainDeleteCancel(Base):
     ''' Undelete a domain (within a certain period of time). '''
     template = u'''<extension>
-        <sidn-ext-epp:command xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:sidn-ext-epp="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0">
+        <sidn-ext-epp:command xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xmlns:sidn-ext-epp="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0">
             <sidn-ext-epp:domainCancelDelete>
                 <sidn-ext-epp:name>{domainname}</sidn-ext-epp:name>
             </sidn-ext-epp:domainCancelDelete>
@@ -331,6 +348,28 @@ class DomainRenew(Command):
       </domain:renew>
     </renew>'''
 
+    # On failure, we get this:
+    # <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+    #     xmlns:sidn-ext-epp="http://rxsd.domain-registry.nl/sidn-ext-epp-1.0">
+    #   <response>
+    #     <result code="2308">
+    #       <msg>Validation of the transaction failed.</msg>
+    #     </result>
+    #     <extension>
+    #       <sidn-ext-epp:ext>
+    #         <sidn-ext-epp:response>
+    #           <sidn-ext-epp:msg code="C0163" field="">
+    #             A change of subscription period is only allowed if this
+    #             really leads to a change.</sidn-ext-epp:msg>
+    #         </sidn-ext-epp:response>
+    #       </sidn-ext-epp:ext>
+    #     </extension>
+    #     <trID>
+    #       <svTRID>125842667</svTRID>
+    #     </trID>
+    #   </response>
+    # </epp>
+
 
 class DomainUpdate(Command):
     ''' Update domain info. '''
@@ -351,34 +390,41 @@ class DomainUpdate(Command):
         self.chg_list = []
 
     def add_nameserver(self, nameserver):
-        self.add_ns_list.append('<domain:hostObj>%s</domain:hostObj>' % nameserver)
+        self.add_ns_list.append(
+            '<domain:hostObj>%s</domain:hostObj>' % nameserver)
         return self
 
     def remove_nameserver(self, nameserver):
-        self.rem_ns_list.append('<domain:hostObj>%s</domain:hostObj>' % nameserver)
+        self.rem_ns_list.append(
+            '<domain:hostObj>%s</domain:hostObj>' % nameserver)
         return self
 
     def add_admin(self, handle):
         # Could be called change_admin by a higher level function, as
         # SIDN wants exactly one admin always.
-        self.add_list.append('<domain:contact type="admin">%s</domain:contact>' % handle)
+        self.add_list.append(
+            '<domain:contact type="admin">%s</domain:contact>' % handle)
         return self
 
     def remove_admin(self, handle):
-        self.rem_list.append('<domain:contact type="admin">%s</domain:contact>' % handle)
+        self.rem_list.append(
+            '<domain:contact type="admin">%s</domain:contact>' % handle)
         return self
 
     def add_tech(self, handle):
-        self.add_list.append('<domain:contact type="tech">%s</domain:contact>' % handle)
+        self.add_list.append(
+            '<domain:contact type="tech">%s</domain:contact>' % handle)
         return self
 
     def remove_tech(self, handle):
-        self.rem_list.append('<domain:contact type="tech">%s</domain:contact>' % handle)
+        self.rem_list.append(
+            '<domain:contact type="tech">%s</domain:contact>' % handle)
         return self
 
     def change_registrant(self, handle):
         assert len(self.chg_list) == 0
-        self.chg_list.append('<domain:registrant>%s</domain:registrant>' % handle)
+        self.chg_list.append(
+            '<domain:registrant>%s</domain:registrant>' % handle)
         return self
 
     def _get_custom(self):
@@ -386,18 +432,23 @@ class DomainUpdate(Command):
 
         add_list = self.add_list[:]
         if self.add_ns_list:
-            add_list.append('<domain:ns>%s</domain:ns>' % ''.join(self.add_ns_list))
+            add_list.append(
+                '<domain:ns>%s</domain:ns>' % ''.join(self.add_ns_list))
         if add_list:
-            custom.append('<domain:add>%s</domain:add>' % ''.join(add_list))
+            custom.append(
+                '<domain:add>%s</domain:add>' % ''.join(add_list))
 
         rem_list = self.rem_list[:]
         if self.rem_ns_list:
-            rem_list.append('<domain:ns>%s</domain:ns>' % ''.join(self.rem_ns_list))
+            rem_list.append(
+                '<domain:ns>%s</domain:ns>' % ''.join(self.rem_ns_list))
         if rem_list:
-            custom.append('<domain:rem>%s</domain:rem>' % ''.join(rem_list))
+            custom.append(
+                '<domain:rem>%s</domain:rem>' % ''.join(rem_list))
 
         if self.chg_list:
-            custom.append('<domain:chg>%s</domain:chg>' % ''.join(self.chg_list))
+            custom.append(
+                '<domain:chg>%s</domain:chg>' % ''.join(self.chg_list))
 
         self.variables['__extension__'] = self._get_extension()
         return super(DomainUpdate, self)._get_custom() + ''.join(custom)
@@ -444,8 +495,10 @@ class DnssecDomainUpdate(DomainUpdate):
         custom = []
 
         if self.dnskey_add_list or self.dnskey_remove_list:
-            custom.append('<extension>')
-            custom.append('<secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">')
+            custom.extend([
+                '<extension>',
+                '<secDNS:update xmlns:secDNS="urn:ietf:params:xml:ns:secDNS-1.1">',
+            ])
             # custom.append('<secDNS:rem><secDNS:all>true</secDNS:all></secDNS:rem>')
             for remove in self.dnskey_remove_list:
                 custom.append('<secDNS:rem><secDNS:keyData>')
@@ -487,19 +540,22 @@ class DomainTransfer(DomainTransferBase):
 class DomainTransferApprove(DomainTransferBase):
     ''' Approve an away transfer. '''
     def __init__(self, domainname):
-        super(DomainTransferApprove, self).__init__(domainname=domainname, op='approve')
+        super(DomainTransferApprove, self).__init__(
+            domainname=domainname, op='approve')
 
 
 class DomainTransferCancel(DomainTransferBase):
     ''' Cancel a domain transfer (to self). '''
     def __init__(self, domainname):
-        super(DomainTransferCancel, self).__init__(domainname=domainname, op='cancel')
+        super(DomainTransferCancel, self).__init__(
+            domainname=domainname, op='cancel')
 
 
 class DomainTransferState(DomainTransferBase):
     ''' Query transfer state of a domain. '''
     def __init__(self, domainname):
-        super(DomainTransferState, self).__init__(domainname=domainname, op='query')
+        super(DomainTransferState, self).__init__(
+            domainname=domainname, op='query')
 
 
 class HostCheck(Command):
@@ -525,7 +581,8 @@ class HostUpdate(Command):
 def main():
     import eppsocket
     import eppxml
-    xml = eppxml.wrap_socket(eppsocket.tcp_connect('testdrs.domain-registry.nl'))
+    xml = eppxml.wrap_socket(
+        eppsocket.tcp_connect('testdrs.domain-registry.nl'))
     try:
         xml.expect(None, '/epp:epp/epp:greeting')
         xml.expect(Login(username='123456', password='aaaaaaaaaa'), XPATH_OK)
@@ -534,13 +591,20 @@ def main():
         x = xml.expect(ContactInfo(handle='DOE001234-ADMIN'), XPATH_OK)
         print(eppxml.pp(x))
         # xml.expect(DomainInfo(domainname='now-power.nl'), 'abc')
-        # create_cmd = DomainCreate(domainname='now-power.nl').add_nameserver('ns1.example.nl').set_registrant('DOE001234-REGIS').add_admin('DOE001234-ADMIN').add_tech('DOE001234-TECHC')
+        # create_cmd = (
+        #     DomainCreate(domainname='now-power.nl')
+        #     .add_nameserver('ns1.example.nl')
+        #     .set_registrant('DOE001234-REGIS')
+        #     .add_admin('DOE001234-ADMIN').add_tech('DOE001234-TECHC'))
         # xml.expect(create_cmd, XPATH_OK)
-        # x = xml.expect(DomainCheck(domainname='ditdomeinisvastvrij.nl'), XPATH_OK)
+        # x = xml.expect(
+        #     DomainCheck(domainname='ditdomeinisvastvrij.nl'), XPATH_OK)
         # print eppxml.pp(x)
         # x = xml.expect(DomainCheck(domainname='example.nl'), XPATH_OK)
         # print eppxml.pp(x)
-        # cmd = DomainUpdate(domainname='now-power.nl').add_nameserver('ns3.example.nl')
+        # cmd = (
+        #     DomainUpdate(domainname='now-power.nl')
+        #     .add_nameserver('ns3.example.nl')
         # x = xml.expect(cmd, XPATH_OK)
         # print eppxml.pp(x)
         # x = xml.expect(DomainInfo(domainname='google.nl'), XPATH_OK)
