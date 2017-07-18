@@ -135,7 +135,6 @@ class ContactCreateUpdateBase(Command):
                     gezet. In de eerste street tag mag geen
                     postbus opgenomen worden. -->
                     <contact:street>{street}</contact:street>
-                    <contact:street>{housenr}</contact:street>
                     <contact:city>{city}</contact:city>
                     <!--<contact:sp>Limburg</contact:sp>-->
                     <contact:pc>{zipcode}</contact:pc>

@@ -82,10 +82,10 @@ class EppSession(object):
             self.cache['contacts'][handle] = self.Contact(session=self, handle=handle)
         return self.cache['contacts'][handle]
 
-    def contact_create(self, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+    def contact_create(self, name, street, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
         ''' Create a new contact. '''
         value = self._exec(ContactCreate(
-            name=name, street=street, housenr=housenr, zipcode=zipcode,
+            name=name, street=street, zipcode=zipcode,
             city=city, countrycode=countrycode,
             phone=phone, fax=fax, email=email,
             legalform=legalform, legalformno=legalformno
@@ -199,11 +199,11 @@ class EppSession(object):
         def __repr__(self):
             return "<EppSession.Contact('%s')>" % self._handle
 
-        def change(self, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+        def change(self, name, street, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
             ''' Update contact info (everything at once). '''
             self._session._exec(ContactUpdate(
                 handle=self._handle, name=name, street=street,
-                housenr=housenr, zipcode=zipcode, city=city,
+                zipcode=zipcode, city=city,
                 countrycode=countrycode, phone=phone, fax=fax,
                 email=email, legalform=legalform,
                 legalformno=legalformno))

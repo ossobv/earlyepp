@@ -59,10 +59,10 @@ def earlyepp(args):
     elif len(args) == 2 and args[0] == 'help':
         if args[1] == 'cchg':
             print 'Change (all) contact info.'
-            print 'Usage: cchg HANDLE NAME STREET HOUSENR ZIPCODE CITY COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
+            print 'Usage: cchg HANDLE NAME STREET+NR CITY ZIPCODE COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
         elif args[1] == 'ccreat':
             print 'Create a new contact.'
-            print 'Usage: ccreat NAME STREET HOUSENR ZIPCODE CITY COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
+            print 'Usage: ccreat NAME STREET+NR CITY ZIPCODE COUNTRYCODE PHONE FAX EMAIL [LEGALFORM LEGALFORMNO]'
         elif args[1] == 'cdel':
             print 'Delete a contact.'
             print 'Usage: cdel HANDLE'
@@ -149,9 +149,9 @@ def earlyepp(args):
 
         session = eppsession.EppSession(lambda: eppxml.wrap_socket(eppsocket.tcp_connect(host, tracefile=tracefile)), username, password)
         try:
-            if len(args) in (10, 12) and command == 'cchg':
+            if len(args) in (9, 11) and command == 'cchg':
                 cchg(session, *args)
-            elif len(args) in (9, 11) and command == 'ccreat':
+            elif len(args) in (8, 10) and command == 'ccreat':
                 ccreat(session, *args)
             elif len(args) == 0 and command == 'msgs':
                 msgs(session)
@@ -198,17 +198,17 @@ def earlyepp(args):
 # COMMANDS
 ########################################################################
 
-def cchg(session, handle, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+def cchg(session, handle, name, streetplusnr, city, zipcode, countrycode, phone, fax, email, legalform=None, legalformno=None):
     session.contact(handle).change(
-        name=name, street=street, housenr=housenr, zipcode=zipcode,
+        name=name, street=streetplusnr, zipcode=zipcode,
         city=city, countrycode=countrycode, phone=phone, fax=fax,
         email=email, legalform=legalform, legalformno=legalformno)
     print 'changed contact:', handle
 
 
-def ccreat(session, name, street, housenr, zipcode, city, countrycode, phone, fax, email, legalform=None, legalformno=None):
+def ccreat(session, name, streetplusnr, city, zipcode, countrycode, phone, fax, email, legalform=None, legalformno=None):
     ret = session.contact_create(
-        name=name, street=street, housenr=housenr, zipcode=zipcode,
+        name=name, street=streetplusnr, zipcode=zipcode,
         city=city, countrycode=countrycode, phone=phone, fax=fax,
         email=email, legalform=legalform, legalformno=legalformno)
     print 'created contact:', ret
