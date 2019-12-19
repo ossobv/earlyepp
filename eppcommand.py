@@ -42,6 +42,9 @@ class Base(object):
     def __init__(self, **kwargs):
         self.variables = self.variables.copy()
         self.variables.update(kwargs)
+        for k, v in list(self.variables.items()):
+            if isinstance(v, bytes):
+                self.variables[k] = v.decode('UTF-8')
 
     def __str__(self):
         ret = '%s%s%s%s%s' % (
