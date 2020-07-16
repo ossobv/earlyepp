@@ -160,11 +160,30 @@ class ContactCreateUpdateBase(Command):
 
     def __init__(self, legalform=None, legalformno=None, **kwargs):
         if kwargs['__cmd__'] == 'create':
+            # *Code*    *Omschrijving*
+            # ANDERS    Anders (Gemeente? Waterschap?)
+            # BGG       Buitenlandse EG vennootschap
+            # BRO       Buitenlandse rechtsvorm/onderneming/nevenvestiging
+            # BV        Besloten Vennootschap
+            # BVI/O     B.V. in oprichting
+            # COOP      Cooperatie
+            # CV        Commanditaire Vennootschap
+            # EENMANSZAAK Eenmanszaak
+            # EESV      Europees Economisch Samenwerkingsverband
+            # KERK      Kerkgenootschap
+            # MAATSCHAP Maatschap
+            # NV        Naamloze Vennootschap
+            # OWM       Onderlinge Waarborg Maatschappij
+            # PERSOON   Natuurlijk persoon
+            # REDR      Rederij
+            # STICHTING Stichting
+            # VERENIGING Vereniging
+            # VOF       Vennootschap onder firma
             if legalform is not None:
                 assert legalform in (
-                    'BGG BRO BV BVI/O COOP CV EENMANSZAAK EESV KERK '
-                    'MAATSCHAP NV OWM PERSOON REDR STICHTING '
-                    'VERENIGING VOF'.split())
+                    'ANDERS BGG BRO BV BVI/O COOP CV EENMANSZAAK EESV KERK '
+                    'MAATSCHAP NV OWM PERSOON REDR STICHTING VERENIGING '
+                    'VOF'.split())
                 assert legalformno is not None
                 legalform_xml = (
                     '<sidn:legalForm>%s</sidn:legalForm>'
